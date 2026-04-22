@@ -1,0 +1,180 @@
+
+import warnings
+warnings.filterwarnings('ignore')
+import wbgapi as wb
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set_style("whitegrid")
+plt.rcParams['figure.figsize'] = (12, 6)
+print("库导入成功！")
+print(f"wbgapi 版本: {wb.__version__ if hasattr(wb, '__version__') else '已加载'}")
+indicators = ['NY.GDP.MKTP.CD',     
+              'NY.GDP.MKTP.KD.ZG',  
+              'NY.GDP.PCAP.CD']      
+
+countries = ['USA', 'JPN', 'DEU',    
+             'CHN', 'IND', 'BRA']    
+start_year = 1990
+end_year = 2024
+
+print("正在从世界银行获取数据...")
+print(f"指标: {indicators}")
+print(f"国家: {countries}")
+print(f"时间范围: {start_year} - {end_year}")
+print("-" * 50)
+
+gdp_data = wb.data.DataFrame(indicators, 
+                              countries, 
+                              time=range(start_year, end_year+1),
+                              labels=True)
+
+print("数据获取完成！")
+print(f"数据维度: {gdp_data.shape}")
+print("\n前5行数据预览:")
+gdp_data.head()
+print("数据类型:")
+print(gdp_data.dtypes)
+print("\n" + "="*50)
+
+print("缺失值统计:")
+print(gdp_data.isnull().sum())
+print("\n" + "="*50)
+
+print("基本统计描述:")
+gdp_data.describe()
+
+missing_pct = gdp_data.isnull().sum() / len(gdp_data) * 100
+print("各列缺失值比例:")
+print(missing_pct[missing_pct > 0])
+
+gdp_data_clean = gdp_data.ffill()
+
+print(f"\n清洗后剩余缺失值: {gdp_data_clean.isnull().sum().sum()}")
+print("数据清洗完成！")
+
+print("数据列名:")
+print(gdp_data_clean.columns.tolist())
+
+gdp_cols = [col for col in gdp_data_clean.columns if 'NY.GDP.MKTP.CD' in col]
+print(f"\nGDP总量相关列: {gdp_cols}")
+
+plt.figure(figsize=(14, 8))
+
+for country in countries:
+    col_name = f"NY.GDP.MKTP.CD | {country}"
+    if col_name in gdp_data_clean.columns:
+        plt.plot(gdp_data_clean.index, 
+                gdp_data_clean[col_name] / 1e12,
+                marker='o', 
+                linewidth=2,
+                markersize=4,
+                label=country)
+
+plt.title('主要经济体GDP总量趋势比较 (1990-2024)', fontsize=16, fontweight='bold')
+plt.xlabel('年份', fontsize=12)
+plt.ylabel('GDP (万亿美元)', fontsize=12)
+plt.legend(loc='upper left', fontsize=10)
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig('gdp_trend_comparison.png', dpi=150, bbox_inches='tight')
+plt.show()
+
+print("图表已保存为: gdp_trend_comparison.png")
+
+plt.figure(figsize=(14, 8))
+
+for country in countries:
+    col_name = f"NY.GDP.MKTP.KD.ZG | {country}"
+    if col_name in gdp_data_clean.columns:
+        plt.plot(gdp_data_clean.index, 
+                gdp_data_clean[col_name],
+                marker='o', 
+                linewidth=2,
+                markersize=4,
+                label=country)
+
+plt.title('主要经济体GDP增长率比较 (1990-2024)', fontsize=16, fontweight='bold')
+plt.xlabel('年份', fontsize=12)
+plt.ylabel('GDP增长率 (%)', fontsize=12)
+plt.axhline(y=0, color='red', linestyle='--', alpha=0.5, label='零增长线')
+plt.legend(loc='lower left', fontsize=10)
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig('gdp_growth_comparison.png', dpi=150, bbox_inches='tight')
+plt.show()
+
+plt.figure(figsize=(14, 8))
+
+for country in countries:
+    col_name = f"NY.GDP.PCAP.CD | {country}"
+    if col_name in gdp_data_clean.columns:
+        plt.plot(gdp_data_clean.index, 
+                gdp_data_clean[col_name],
+                marker='o', 
+                linewidth=2,
+                markersize=4,
+                label=country)
+
+plt.title('主要经济体人均GDP比较 (1990-2024)', fontsize=16, fontweight='bold')
+plt.xlabel('年份', fontsize=12)
+plt.ylabel('人均GDP (美元)', fontsize=12)
+plt.legend(loc='upper left', fontsize=10)
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig('gdp_per_capita_comparison.png', dpi=150, bbox_inches='tight')
+plt.show()
+
+print("="*60)
+print("关键发现总结")
+print("="*60)
+
+print("\n1. GDP总量增长倍数 (2024年 vs 1990年):")
+print("-"*40)
+
+countries_list = ['China', 'United States', 'Japan', 'Germany', 'United Kingdom']
+
+for country in countries_list:
+    country_row = gdp_data_clean[gdp_data_clean['Country'] == country]
+    
+    if not country_row.empty:
+        gdp_1990 = country_row['YR1990'].values[0]
+        gdp_2024 = country_row['YR2024'].values[0]
+        
+        if pd.notna(gdp_1990) and pd.notna(gdp_2024) and gdp_1990 > 0:
+            growth_factor = gdp_2024 / gdp_1990
+            print(f"{country}: {growth_factor:.1f}倍")
+        else:
+            print(f"{country}: 数据缺失")
+    else:
+        print(f"{country}: 未找到数据")
+
+print("\n2. 平均GDP增长率 (1991-2024):")
+print("-"*40)
+for country in countries:
+    col_name = f"NY.GDP.MKTP.KD.ZG | {country}"
+    if col_name in gdp_data_clean.columns:
+        avg_growth = gdp_data_clean[col_name].mean()
+        print(f"  {country}: {avg_growth:.2f}%")
+
+print("\n3. 观察结论:")
+print("-"*40)
+print("  • 中国经济总量增长最为显著，已成为全球第二大经济体")
+print("  • 新兴经济体的增长速度普遍高于发达经济体")
+print("  • 2008年金融危机和2020年疫情对全球经济增长造成明显冲击")
+print("  • 人均GDP差距依然显著，但部分新兴经济体在快速追赶")
+
+
+gdp_data_clean.to_csv('cleaned_gdp_data.csv')
+print("清洗后的数据已保存为: cleaned_gdp_data.csv")
+
+print("\n" + "="*60)
+print("数据来源说明")
+print("="*60)
+print("数据来源: World Bank Open Data (世界银行开放数据)")
+print(f"获取日期: {pd.Timestamp.now().strftime('%Y-%m-%d')}")
+print("指标说明:")
+print("  • NY.GDP.MKTP.CD: GDP (current US$) - 名义国内生产总值")
+print("  • NY.GDP.MKTP.KD.ZG: GDP growth (annual %) - 年度GDP增长率")
+print("  • NY.GDP.PCAP.CD: GDP per capita (current US$) - 人均GDP")
+
